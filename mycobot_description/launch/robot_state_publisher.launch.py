@@ -10,7 +10,6 @@ and processing of URDF/XACRO files and controller configurations.
 :date: November 15, 2024
 """
 import os
-from pathlib import Path
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition, UnlessCondition
@@ -39,22 +38,14 @@ def process_ros2_controllers_config(context):
     flange_link = LaunchConfiguration('flange_link').perform(context)
     robot_name = LaunchConfiguration('robot_name').perform(context)
 
-    home = str(Path.home())
+    # Resolve the moveit_config package share directory via ament index so the
+    # launch file works regardless of the workspace layout.
+    pkg_share_moveit = FindPackageShare(package='mycobot_moveit_config').find(
+        'mycobot_moveit_config')
+    config_path = os.path.join(pkg_share_moveit, 'config', robot_name)
 
-    # Define both source and install paths
-    src_config_path = os.path.join(
-        home,
-        'ros2_ws/src/mycobot_ros2/mycobot_moveit_config/config',
-        robot_name
-    )
-    install_config_path = os.path.join(
-        home,
-        'ros2_ws/install/mycobot_moveit_config/share/mycobot_moveit_config/config',
-        robot_name
-    )
-
-    # Read from source template
-    template_path = os.path.join(src_config_path, 'ros2_controllers_template.yaml')
+    # Read the template shipped with the installed package
+    template_path = os.path.join(config_path, 'ros2_controllers_template.yaml')
     with open(template_path, 'r', encoding='utf-8') as file:
         template_content = file.read()
 
@@ -62,12 +53,12 @@ def process_ros2_controllers_config(context):
     processed_content = template_content.replace('${prefix}', prefix)
     processed_content = processed_content.replace('${flange_link}', flange_link)
 
-    # Write processed content to both source and install directories
-    for config_path in [src_config_path, install_config_path]:
-        os.makedirs(config_path, exist_ok=True)
-        output_path = os.path.join(config_path, 'ros2_controllers.yaml')
-        with open(output_path, 'w', encoding='utf-8') as file:
-            file.write(processed_content)
+    # Write the processed yaml next to the template in the install share so
+    # xacro's $(find mycobot_moveit_config)/config/<robot>/ros2_controllers.yaml
+    # lookup resolves it.
+    output_path = os.path.join(config_path, 'ros2_controllers.yaml')
+    with open(output_path, 'w', encoding='utf-8') as file:
+        file.write(processed_content)
 
     return []
 
