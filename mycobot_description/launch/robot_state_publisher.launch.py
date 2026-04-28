@@ -10,7 +10,7 @@ and processing of URDF/XACRO files and controller configurations.
 :date: November 15, 2024
 """
 import os
-from pathlib import Path
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.conditions import IfCondition, UnlessCondition
@@ -39,22 +39,23 @@ def process_ros2_controllers_config(context):
     flange_link = LaunchConfiguration('flange_link').perform(context)
     robot_name = LaunchConfiguration('robot_name').perform(context)
 
-    home = str(Path.home())
+    # __file__: <ws>/src/mycobot_ros2/mycobot_description/launch/robot_state_publisher.launch.py
+    # go up 3 levels to reach <ws>/src/mycobot_ros2/
+    mycobot_ros2_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    # Define both source and install paths
     src_config_path = os.path.join(
-        home,
-        'ros2_ws/src/mycobot_ros2/mycobot_moveit_config/config',
+        mycobot_ros2_root,
+        'mycobot_moveit_config', 'config',
         robot_name
     )
     install_config_path = os.path.join(
-        home,
-        'ros2_ws/install/mycobot_moveit_config/share/mycobot_moveit_config/config',
+        get_package_share_directory('mycobot_moveit_config'),
+        'config',
         robot_name
     )
 
-    # Read from source template
-    template_path = os.path.join(src_config_path, 'ros2_controllers_template.yaml')
+    # Read from install template (src_config_path is unreliable when running from install dir)
+    template_path = os.path.join(install_config_path, 'ros2_controllers_template.yaml')
     with open(template_path, 'r', encoding='utf-8') as file:
         template_content = file.read()
 
